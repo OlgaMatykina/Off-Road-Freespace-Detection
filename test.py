@@ -20,6 +20,7 @@ if __name__ == '__main__':
 
     data_loader = CreateDataLoader(opt)
     dataset = data_loader.load_data()
+    # print('WOW', len(dataset))
     model = create_model(opt, dataset.dataset)
     model.setup(opt)
     model.eval()

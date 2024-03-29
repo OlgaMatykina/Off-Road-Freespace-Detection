@@ -3,6 +3,7 @@ from options.test_options import TestOptions
 from models import create_model
 from util.util import tensor2labelim, tensor2confidencemap
 from models.sne_model import SNE
+import time
 import torchvision.transforms as transforms
 import torch
 import numpy as np
@@ -56,14 +57,18 @@ if __name__ == '__main__':
     # if you want to use your own data, please modify seq_name, image_data, dense_depth, calib and use_size correspondingly.
     use_size = (1280, 704)
     root_dir = 'examples'
-    seq_name = 'y0613_1242' # Need to be changed
+    # seq_name = 'y0613_1242' # Need to be changed
+    seq_name = 'InconSeg'
 
     save_dir = os.path.join(root_dir, seq_name, 'results')
     os.makedirs(save_dir, exist_ok=True)
 
     img_list = glob.glob(os.path.join(root_dir, seq_name, 'image_data', '*.png'))
 
-    for img_list_i in img_list:
+    ave_time_cost = 0.0
+    ave_full_time_cost = 0.0
+
+    for it,img_list_i in enumerate(img_list):
         img_name = img_list_i.split('/')[-1].split('.')[0]
         print('img_name:',img_name)
         rgb_image = cv2.cvtColor(cv2.imread(os.path.join(root_dir, seq_name, 'image_data', img_name+'.png')), cv2.COLOR_BGR2RGB)
@@ -84,10 +89,13 @@ if __name__ == '__main__':
         calib_dir = os.path.join(root_dir, seq_name, 'calib', img_name+'.txt')
         camParam = load_calib(calib_dir)
         
+        start_full_time = time.time()
+
         normal = sne_model(torch.tensor(depth_image.astype(np.float32)/256), camParam)
+        
         normal_image = normal.cpu().numpy()
         normal_image = np.transpose(normal_image, [1, 2, 0])
-        cv2.imwrite(os.path.join(os.path.join(save_dir, img_name+'_normal.png')), cv2.cvtColor(255*(1+normal_image)/2, cv2.COLOR_RGB2BGR))
+        # cv2.imwrite(os.path.join(os.path.join(save_dir, img_name+'_normal.png')), cv2.cvtColor(255*(1+normal_image)/2, cv2.COLOR_RGB2BGR))
         normal_image_save = cv2.cvtColor(255*(1+normal_image)/2, cv2.COLOR_RGB2BGR)
         normal_image = cv2.resize(normal_image, use_size)
 
@@ -95,7 +103,16 @@ if __name__ == '__main__':
         normal_image = transforms.ToTensor()(normal_image).unsqueeze(dim=0)
 
         with torch.no_grad():
+
+            start_time = time.time()
             pred = model.netRoadSeg(rgb_image, normal_image)
+            end_time = time.time()
+
+            end_full_time = time.time()
+
+            if it>=5: # # ignore the first 5 frames
+                ave_time_cost += (end_time-start_time)
+                ave_full_time_cost += (end_full_time-start_full_time)
 
             palet_file = 'datasets/palette.txt'
             impalette = list(np.genfromtxt(palet_file, dtype=np.uint8).reshape(3*256))
@@ -123,3 +140,5 @@ if __name__ == '__main__':
             #cv2.waitKey(0)
             #cv2.destroyAllWindows()
     print('Done!')
+    print('\n* the average time cost per frame: %.2f ms, namely, the inference speed is %.2f fps' %(ave_time_cost*1000/(len(img_list)-5), 1.0/(ave_time_cost/(len(img_list)-5)))) # ignore the first 5 frames
+    print('\n* the average full time cost per frame: %.2f ms, namely, the inference speed is %.2f fps' %(ave_full_time_cost*1000/(len(img_list)-5), 1.0/(ave_full_time_cost/(len(img_list)-5)))) # ignore the first 5 frames

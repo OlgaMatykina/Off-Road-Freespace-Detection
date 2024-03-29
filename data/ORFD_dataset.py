@@ -60,6 +60,7 @@ class orfddataset(BaseDataset):
         self.opt = opt
         self.batch_size = opt.batch_size
         self.root = opt.dataroot # path for the dataset
+        print('root', self.root)
         self.use_sne = opt.use_sne
         self.num_labels = 2
         self.use_size = (opt.useWidth, opt.useHeight)
@@ -67,11 +68,13 @@ class orfddataset(BaseDataset):
             self.sne_model = SNE()
 
         if opt.phase == "train":
-            self.image_list = sorted(glob.glob(os.path.join(self.root, 'training', '*','image_data', '*.png'))) # shape: 1280*720
+            self.image_list = sorted(glob.glob(os.path.join(self.root, 'training', 'image_data', '*.png'))) # shape: 1280*720
         elif opt.phase == "val":
-            self.image_list = sorted(glob.glob(os.path.join(self.root, 'validation', '*','image_data', '*.png')))
+            self.image_list = sorted(glob.glob(os.path.join(self.root, 'validation', 'image_data', '*.png')))
         else:
-            self.image_list = sorted(glob.glob(os.path.join(self.root, 'testing', '*','image_data', '*.png')))
+            # print(os.path.join(self.root, 'testing','image_data', '*.png'))
+            self.image_list = sorted(glob.glob(os.path.join(self.root, 'testing', 'image_data', '*.png')))
+        # print('image_list', self.image_list)
 
     def __getitem__(self, index):
         useDir = "/".join(self.image_list[index].split('/')[:-2])
@@ -90,6 +93,7 @@ class orfddataset(BaseDataset):
             label_dir = os.path.join(useDir, 'gt_image', label_img_name)
             label_image = cv2.cvtColor(cv2.imread(label_dir), cv2.COLOR_BGR2RGB)
             
+            print('read gt')
             label = np.zeros((oriHeight, oriWidth), dtype=np.uint8)
             label[label_image[:,:,2] > 200] = 1
 
@@ -101,6 +105,7 @@ class orfddataset(BaseDataset):
         # another_image will be normal when using SNE, otherwise will be depth
         if self.use_sne:
             calib = orfdCalibInfo(os.path.join(useDir, 'calib', name.split('.')[0] +'.txt'))
+            # print('calib', calib)
             camParam = torch.tensor(calib.get_cam_param(), dtype=torch.float32)
             camParam[1, 2] = camParam[1, 2] - 8  # 720-16=704
             

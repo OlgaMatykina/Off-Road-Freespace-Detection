@@ -37,6 +37,7 @@ def create_dataset(opt):
     instance = dataset()
     instance.initialize(opt)
     print("dataset [%s] was created" % (instance.name()))
+    # print('WOW', len(instance))
     return instance
 
 def CreateDataLoader(opt):
